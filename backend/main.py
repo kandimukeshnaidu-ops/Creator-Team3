@@ -5,10 +5,11 @@ from pydantic import BaseModel
 import bcrypt
 import random
 import re
+from datetime import datetime, timedelta
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
-from models import User, CreatorProfile, Notification, ContentLink
+from models import User, CreatorProfile, Notification, ContentLink, RevenueRecord
 
 app = FastAPI()
 
@@ -52,6 +53,12 @@ class ProfileUpdate(BaseModel):
 
 class LinkSubmit(BaseModel):
     url: str
+
+class RevenueSubmit(BaseModel):
+    source: str
+    amount: float
+    description: str = ""
+    date: str = None
 
 
 @app.get("/")
@@ -615,5 +622,120 @@ def delete_content_link(id: int, credentials: HTTPAuthorizationCredentials = Dep
         db.delete(link)
         db.commit()
         return {"message": "Link deleted successfully"}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@app.get("/api/revenue")
+def get_revenue_records(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("Email")
+        user = db.query(User).filter(User.Email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        records = db.query(RevenueRecord).filter(RevenueRecord.user_id == user.id).order_by(RevenueRecord.date.desc()).all()
+        
+        if not records:
+            now = datetime.utcnow()
+            default_records = [
+                # AdSense payouts
+                RevenueRecord(user_id=user.id, source="AdSense", amount=2450.00, description="Monthly AdSense Payout", date=now - timedelta(days=150)),
+                RevenueRecord(user_id=user.id, source="AdSense", amount=2890.00, description="Monthly AdSense Payout", date=now - timedelta(days=120)),
+                RevenueRecord(user_id=user.id, source="AdSense", amount=3120.00, description="Monthly AdSense Payout", date=now - timedelta(days=90)),
+                RevenueRecord(user_id=user.id, source="AdSense", amount=2750.00, description="Monthly AdSense Payout", date=now - timedelta(days=60)),
+                RevenueRecord(user_id=user.id, source="AdSense", amount=3400.00, description="Monthly AdSense Payout", date=now - timedelta(days=30)),
+                RevenueRecord(user_id=user.id, source="AdSense", amount=3850.00, description="Monthly AdSense Payout", date=now - timedelta(days=5)),
+                
+                # Sponsorship deals
+                RevenueRecord(user_id=user.id, source="Sponsorship", amount=5000.00, description="NordVPN Video Integration", date=now - timedelta(days=110)),
+                RevenueRecord(user_id=user.id, source="Sponsorship", amount=7500.00, description="Squarespace Dedicated Video", date=now - timedelta(days=75)),
+                RevenueRecord(user_id=user.id, source="Sponsorship", amount=6200.00, description="Intel Core Ultra Sponsorship", date=now - timedelta(days=20)),
+                
+                # Affiliate links
+                RevenueRecord(user_id=user.id, source="Affiliate", amount=450.00, description="Amazon Referrals", date=now - timedelta(days=105)),
+                RevenueRecord(user_id=user.id, source="Affiliate", amount=610.00, description="Amazon Referrals", date=now - timedelta(days=45)),
+                
+                # Merchandise sales
+                RevenueRecord(user_id=user.id, source="Merch", amount=1200.00, description="Hoodies Drop Payout", date=now - timedelta(days=40))
+            ]
+            for r in default_records:
+                db.add(r)
+            db.commit()
+            records = db.query(RevenueRecord).filter(RevenueRecord.user_id == user.id).order_by(RevenueRecord.date.desc()).all()
+            
+        return [
+            {
+                "id": r.id,
+                "source": r.source,
+                "amount": r.amount,
+                "description": r.description,
+                "date": r.date.isoformat()
+            } for r in records
+        ]
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@app.post("/api/revenue")
+def add_revenue_record(data: RevenueSubmit, credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("Email")
+        user = db.query(User).filter(User.Email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        parsed_date = datetime.utcnow()
+        if data.date:
+            try:
+                date_str = data.date.replace('Z', '')
+                if 'T' in date_str:
+                    parsed_date = datetime.fromisoformat(date_str)
+                else:
+                    parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+            except Exception:
+                pass
+                
+        new_record = RevenueRecord(
+            user_id=user.id,
+            source=data.source,
+            amount=data.amount,
+            description=data.description,
+            date=parsed_date
+        )
+        
+        db.add(new_record)
+        db.commit()
+        db.refresh(new_record)
+        
+        return {
+            "id": new_record.id,
+            "source": new_record.source,
+            "amount": new_record.amount,
+            "description": new_record.description,
+            "date": new_record.date.isoformat()
+        }
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@app.delete("/api/revenue/{id}")
+def delete_revenue_record(id: int, credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("Email")
+        user = db.query(User).filter(User.Email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        record = db.query(RevenueRecord).filter(RevenueRecord.id == id, RevenueRecord.user_id == user.id).first()
+        if not record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        
+        db.delete(record)
+        db.commit()
+        return {"message": "Revenue record deleted successfully"}
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid Token")

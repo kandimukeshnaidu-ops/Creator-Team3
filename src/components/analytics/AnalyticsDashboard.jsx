@@ -8,6 +8,7 @@ import SettingsView from './SettingsView';
 import NotificationsPanel from './NotificationsPanel';
 import AdminPanel from './AdminPanel';
 import LinkAnalyzer from './LinkAnalyzer';
+import RevenueTracker from './RevenueTracker';
 
 import { kpiData as dummyKpiData, platformPerformance as dummyPerformance } from '../../data/dummyAnalytics';
 
@@ -565,6 +566,13 @@ export default function AnalyticsDashboard({ token, onLogout, onAuthUpdate, curr
             </button>
             <button 
               type="button" 
+              className={`nav-tab-btn ${activeTab === 'revenue' ? 'active' : ''}`}
+              onClick={() => setActiveTab('revenue')}
+            >
+              Revenue
+            </button>
+            <button 
+              type="button" 
               className={`nav-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
               onClick={() => setActiveTab('settings')}
             >
@@ -621,6 +629,8 @@ export default function AnalyticsDashboard({ token, onLogout, onAuthUpdate, curr
         <AdminPanel token={token} />
       ) : activeTab === 'links' ? (
         <LinkAnalyzer token={token} />
+      ) : activeTab === 'revenue' ? (
+        <RevenueTracker token={token} />
       ) : (
         <>
           {/* Dynamic welcome message for Agencies and Brands */}

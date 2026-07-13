@@ -91,3 +91,13 @@ class ContentLink(Base):
     comments = Column(Integer, default=0)
     shares = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class RevenueRecord(Base):
+    __tablename__ = "revenue_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    source = Column(String, nullable=False)  # "AdSense", "Sponsorship", "Affiliate", "Merch"
+    amount = Column(Float, default=0.0)
+    description = Column(String, default="")
+    date = Column(DateTime, default=datetime.utcnow)
