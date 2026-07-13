@@ -3,10 +3,12 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import bcrypt
+import random
+import re
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 from database import engine, Base, get_db
-from models import User, CreatorProfile, Notification
+from models import User, CreatorProfile, Notification, ContentLink
 
 app = FastAPI()
 
@@ -47,6 +49,9 @@ class ProfileUpdate(BaseModel):
     language: str
     region: str
     platform: str
+
+class LinkSubmit(BaseModel):
+    url: str
 
 
 @app.get("/")
@@ -487,5 +492,128 @@ def delete_user(id: int, credentials: HTTPAuthorizationCredentials = Depends(sec
         db.delete(target_user)
         db.commit()
         return {"message": "User deleted successfully"}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@app.post("/api/links")
+def add_content_link(data: LinkSubmit, credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("Email")
+        user = db.query(User).filter(User.Email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        url = data.url.strip()
+        url_lower = url.lower()
+        
+        # Determine platform
+        if "youtube.com" in url_lower or "youtu.be" in url_lower:
+            platform = "YouTube"
+            default_title = "YouTube Video Upload"
+        elif "instagram.com" in url_lower:
+            platform = "Instagram"
+            default_title = "Instagram Media Post"
+        elif "linkedin.com" in url_lower:
+            platform = "LinkedIn"
+            default_title = "LinkedIn Article Share"
+        elif "twitch.tv" in url_lower:
+            platform = "Twitch"
+            default_title = "Twitch Live Stream Clip"
+        else:
+            raise HTTPException(status_code=400, detail="Invalid platform URL. Only YouTube, Instagram, LinkedIn, and Twitch are supported.")
+        
+        # Try to make a pretty title from URL path or suffix
+        suffix = url.split('/')[-1].split('?')[0]
+        if len(suffix) > 3 and suffix != "watch":
+            title = f"{platform} Content: {suffix}"
+        else:
+            # Check for YouTube watch query parameter
+            match = re.search(r"[?&]v=([^&#]+)", url)
+            if match:
+                title = f"YouTube Video: {match.group(1)}"
+            else:
+                title = f"{default_title} ({datetime.utcnow().strftime('%b %d, %Y')})"
+        
+        # Generate high-fidelity mock metrics
+        views = random.randint(15000, 750000)
+        likes = int(views * random.uniform(0.04, 0.12))
+        comments = int(likes * random.uniform(0.02, 0.08))
+        shares = int(likes * random.uniform(0.01, 0.05))
+        
+        new_link = ContentLink(
+            user_id=user.id,
+            url=url,
+            platform=platform,
+            title=title,
+            views=views,
+            likes=likes,
+            comments=comments,
+            shares=shares
+        )
+        
+        db.add(new_link)
+        db.commit()
+        db.refresh(new_link)
+        
+        return {
+            "id": new_link.id,
+            "url": new_link.url,
+            "platform": new_link.platform,
+            "title": new_link.title,
+            "views": new_link.views,
+            "likes": new_link.likes,
+            "comments": new_link.comments,
+            "shares": new_link.shares,
+            "created_at": new_link.created_at.isoformat()
+        }
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@app.get("/api/links")
+def get_content_links(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("Email")
+        user = db.query(User).filter(User.Email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        links = db.query(ContentLink).filter(ContentLink.user_id == user.id).order_by(ContentLink.created_at.desc()).all()
+        return [
+            {
+                "id": l.id,
+                "url": l.url,
+                "platform": l.platform,
+                "title": l.title,
+                "views": l.views,
+                "likes": l.likes,
+                "comments": l.comments,
+                "shares": l.shares,
+                "created_at": l.created_at.isoformat()
+            } for l in links
+        ]
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid Token")
+
+@app.delete("/api/links/{id}")
+def delete_content_link(id: int, credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("Email")
+        user = db.query(User).filter(User.Email == email).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        link = db.query(ContentLink).filter(ContentLink.id == id, ContentLink.user_id == user.id).first()
+        if not link:
+            raise HTTPException(status_code=404, detail="Link not found")
+        
+        db.delete(link)
+        db.commit()
+        return {"message": "Link deleted successfully"}
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid Token")

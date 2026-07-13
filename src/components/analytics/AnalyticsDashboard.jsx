@@ -7,6 +7,7 @@ import EngagementBarChart from './EngagementBarChart';
 import SettingsView from './SettingsView';
 import NotificationsPanel from './NotificationsPanel';
 import AdminPanel from './AdminPanel';
+import LinkAnalyzer from './LinkAnalyzer';
 
 import { kpiData as dummyKpiData, platformPerformance as dummyPerformance } from '../../data/dummyAnalytics';
 
@@ -557,6 +558,13 @@ export default function AnalyticsDashboard({ token, onLogout, onAuthUpdate, curr
             </button>
             <button 
               type="button" 
+              className={`nav-tab-btn ${activeTab === 'links' ? 'active' : ''}`}
+              onClick={() => setActiveTab('links')}
+            >
+              Link Analyzer
+            </button>
+            <button 
+              type="button" 
               className={`nav-tab-btn ${activeTab === 'settings' ? 'active' : ''}`}
               onClick={() => setActiveTab('settings')}
             >
@@ -611,6 +619,8 @@ export default function AnalyticsDashboard({ token, onLogout, onAuthUpdate, curr
         />
       ) : activeTab === 'admin' ? (
         <AdminPanel token={token} />
+      ) : activeTab === 'links' ? (
+        <LinkAnalyzer token={token} />
       ) : (
         <>
           {/* Dynamic welcome message for Agencies and Brands */}

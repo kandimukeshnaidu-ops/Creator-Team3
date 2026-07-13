@@ -77,3 +77,17 @@ class Notification(Base):
     type = Column(String, nullable=False)  # "alert", "milestone", "system"
     read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class ContentLink(Base):
+    __tablename__ = "content_links"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    url = Column(String, nullable=False)
+    platform = Column(String, nullable=False)  # "youtube", "instagram", "linkedin", "twitch"
+    title = Column(String, nullable=False)
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    comments = Column(Integer, default=0)
+    shares = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
