@@ -9,6 +9,7 @@ import NotificationsPanel from './NotificationsPanel';
 import AdminPanel from './AdminPanel';
 import LinkAnalyzer from './LinkAnalyzer';
 import RevenueTracker from './RevenueTracker';
+import BrandDashboardView from './BrandDashboardView';
 
 import { kpiData as dummyKpiData, platformPerformance as dummyPerformance } from '../../data/dummyAnalytics';
 
@@ -633,74 +634,43 @@ export default function AnalyticsDashboard({ token, onLogout, onAuthUpdate, curr
         <RevenueTracker token={token} />
       ) : (
         <>
-          {/* Dynamic welcome message for Agencies and Brands */}
-          {(userRole === 'Agency' || userRole === 'Brand') && (
-            <div style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--border-color)',
-              padding: '1.25rem 1.5rem',
-              borderRadius: '16px',
-              marginBottom: '1.5rem',
-              backdropFilter: 'blur(12px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between'
-            }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700' }}>
-                  Welcome back, {userRole === 'Agency' ? 'Agency Manager' : 'Sponsor Brand Partner'}!
-                </h3>
-                <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                  {userRole === 'Agency' 
-                    ? 'Overseeing multi-platform creator listings and engagement rate stats.' 
-                    : 'Reviewing active campaigns and audience reach metrics.'}
-                </p>
+          {(userRole === 'Agency' || userRole === 'Brand') ? (
+            <BrandDashboardView />
+          ) : (
+            <>
+              {/* Dashboard Filters Row */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', position: 'relative', zIndex: 10 }}>
+                <div className="filter-group">
+                  {['All', 'YouTube', 'Instagram', 'LinkedIn', 'Twitch'].map((platform) => (
+                    <button
+                      key={platform}
+                      className={`filter-btn ${selectedPlatform === platform ? 'active' : ''}`}
+                      onClick={() => setSelectedPlatform(platform)}
+                    >
+                      {platform}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <span style={{
-                background: 'var(--accent-glow)',
-                border: '1px solid var(--accent-primary)',
-                color: 'var(--accent-primary)',
-                padding: '4px 10px',
-                borderRadius: '8px',
-                fontSize: '0.75rem',
-                fontWeight: '700'
-              }}>
-                PREMIUM PORTAL ACTIVE
-              </span>
-            </div>
+
+              {/* Top Section: KPI Cards */}
+              <section className="dashboard-section">
+                <KPICards data={activeKpiData} />
+              </section>
+
+              {/* Middle Section: Views Chart & Followers Chart */}
+              <section className="dashboard-row">
+                <ViewsChart data={viewsData.length ? viewsData : undefined} />
+                <FollowersChart data={followersData.length ? followersData : undefined} />
+              </section>
+
+              {/* Bottom Section: Audience Pie Chart & Engagement Bar Chart */}
+              <section className="dashboard-row">
+                <AudiencePieChart data={audienceData.length ? audienceData : undefined} />
+                <EngagementBarChart data={platformPerformance} />
+              </section>
+            </>
           )}
-
-          {/* Dashboard Filters Row */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem', position: 'relative', zIndex: 10 }}>
-            <div className="filter-group">
-              {['All', 'YouTube', 'Instagram', 'LinkedIn', 'Twitch'].map((platform) => (
-                <button
-                  key={platform}
-                  className={`filter-btn ${selectedPlatform === platform ? 'active' : ''}`}
-                  onClick={() => setSelectedPlatform(platform)}
-                >
-                  {platform}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Top Section: KPI Cards */}
-          <section className="dashboard-section">
-            <KPICards data={activeKpiData} />
-          </section>
-
-          {/* Middle Section: Views Chart & Followers Chart */}
-          <section className="dashboard-row">
-            <ViewsChart data={viewsData.length ? viewsData : undefined} />
-            <FollowersChart data={followersData.length ? followersData : undefined} />
-          </section>
-
-          {/* Bottom Section: Audience Pie Chart & Engagement Bar Chart */}
-          <section className="dashboard-row">
-            <AudiencePieChart data={audienceData.length ? audienceData : undefined} />
-            <EngagementBarChart data={platformPerformance} />
-          </section>
         </>
       )}
       {showNotifPanel && (
